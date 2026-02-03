@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:dineall/screen/cart_screen.dart';
 import 'package:dineall/service/cart_service.dart';
 import 'package:dineall/service/favorite_service.dart';
+import '../services/menu_api.dart';
+import '../services/auth_api.dart';
+import '../services/token_store.dart';
+import '../services/token_manager.dart';
 
 class RestaurantMenuScreen extends StatefulWidget {
   final Map<String, dynamic> restaurant;
@@ -16,7 +20,20 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   int _selectedCategoryIndex = 0;
   List<String> _categories = ['Popular', 'Mains', 'Sides', 'Drinks'];
 
-  // Mock menu items for different restaurants
+  // ✅ API objects
+  final MenuApi _menuApi = MenuApi();
+  final AuthApi _authApi = AuthApi();
+  final TokenStore _tokenStore = TokenStore();
+  late final TokenManager _tokenManager;
+
+  // ✅ fetched items mapped to same structure as your mock
+  List<Map<String, dynamic>>? _apiMenuItems;
+
+  // (Optional) keep for debug / error state
+  bool _isLoadingMenu = false;
+  String? _menuError;
+
+  // Mock menu items for different restaurants (kept as fallback)
   final Map<String, List<Map<String, dynamic>>> _menuItems = {
     'The Burger House': [
       {
@@ -454,9 +471,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void initState() {
     super.initState();
+
     // Update categories based on restaurant type
     final title = widget.restaurant['title'].toString();
-    
+
     if (title.contains('Pizza') || title.contains('Hut')) {
       _categories = ['Popular', 'Signature Pizzas', 'Classic', 'Calzones', 'Starters', 'Pizzas', 'Sides'];
     } else if (title.contains('Burger') || title.contains('King')) {
@@ -484,19 +502,74 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     } else if (title.contains('Subway')) {
       _categories = ['Popular', 'Sandwiches', 'Sides'];
     }
+
+    // ✅ TokenManager + fetch menu from API
+    _tokenManager = TokenManager(
+      authApi: _authApi,
+      tokenStore: _tokenStore,
+      renewBefore: const Duration(minutes: 5),
+      persistCredentials: true,
+    );
+
+    _fetchMenu();
+  }
+
+  Future<void> _fetchMenu() async {
+    setState(() {
+      _isLoadingMenu = true;
+      _menuError = null;
+    });
+
+    try {
+      // ✅ same values as Postman example
+      final items = await _menuApi.getMenu(
+        tokenManager: _tokenManager,
+        orgShortName: 'act',
+        locRef: 'inve',
+        rvcRef: '1',
+      );
+
+      final mapped = items.map((it) {
+        final price = (it.price ?? 0).toDouble();
+
+        return <String, dynamic>{
+          'name': it.name,
+          'description': ' ', // API doesn't provide description (keep UI same)
+          'price': price,
+          'image': widget.restaurant['image'], // fallback image
+          'category': 'Popular', // so items show under Popular (and Popular shows all anyway)
+        };
+      }).toList();
+
+      setState(() {
+        _apiMenuItems = mapped;
+        _isLoadingMenu = false;
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ GET MENU ERROR: $e');
+      setState(() {
+        _menuError = e.toString();
+        _isLoadingMenu = false;
+        _apiMenuItems = null; // fallback to mock
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     const primary = Color(0xFF8A0000);
     const darkBrown = Color(0xFF3E2723);
-    
-    // Get items for current restaurant or default list
-    final allItems = _menuItems[widget.restaurant['title']] ?? _menuItems['The Burger House']!;
+
+    // ✅ Use API items if available, otherwise fallback to mock
+    final allItems = (_apiMenuItems != null && _apiMenuItems!.isNotEmpty)
+        ? _apiMenuItems!
+        : (_menuItems[widget.restaurant['title']] ?? _menuItems['The Burger House']!);
+
     final selectedCategory = _categories[_selectedCategoryIndex];
-    
-    final currentItems = selectedCategory == 'Popular' 
-        ? allItems 
+
+    final currentItems = selectedCategory == 'Popular'
+        ? allItems
         : allItems.where((item) => item['category'] == selectedCategory).toList();
 
     return Scaffold(
@@ -542,11 +615,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(
-                                  isFav 
-                                    ? 'Removed from favorites' 
-                                    : 'Added to favorites'
-                                ),
+                                content: Text(isFav ? 'Removed from favorites' : 'Added to favorites'),
                                 duration: const Duration(seconds: 1),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: const Color(0xFF8A0000),
@@ -680,20 +749,37 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                        (context, index) {
                       if (index == 0) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16),
-                          child: Text(
-                            _categories[_selectedCategoryIndex],
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: darkBrown,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _categories[_selectedCategoryIndex],
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: darkBrown,
+                                ),
+                              ),
+                              // ✅ optional tiny indicator (doesn't change design structure)
+                              if (_isLoadingMenu)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                            ],
                           ),
                         );
                       }
+
+                      // If API failed and user wants to know, we keep it silent in UI (design unchanged)
+                      // ignore: unused_local_variable
+                      final err = _menuError;
+
                       final item = currentItems[index - 1];
                       return _buildMenuItem(item);
                     },
@@ -709,7 +795,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             animation: CartService(),
             builder: (context, child) {
               final cart = CartService();
-              
+
               return AnimatedPositioned(
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeInOutBack,
@@ -820,7 +906,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 Row(
                   children: [
                     Text(
-                      '\$${item['price'].toStringAsFixed(2)}',
+                      '\$${(item['price'] as num).toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -828,36 +914,119 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       ),
                     ),
                     const Spacer(),
-                    InkWell(
-                      onTap: () {
-                        // Safe tag extraction
-                        String tag = '';
-                        if (widget.restaurant['tags'] != null && (widget.restaurant['tags'] as List).isNotEmpty) {
-                          tag = (widget.restaurant['tags'] as List)[0];
-                        } else {
-                          tag = 'General';
+                    AnimatedBuilder(
+                      animation: CartService(),
+                      builder: (context, child) {
+                        final quantity = CartService().getItemQuantity(
+                          widget.restaurant['title'],
+                          item['name'],
+                        );
+
+                        if (quantity > 0) {
+                          return Container(
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: primary.withOpacity(0.2)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    CartService().decrementItemQuantity(
+                                      widget.restaurant['title'],
+                                      item['name'],
+                                    );
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(18),
+                                    bottomLeft: Radius.circular(18),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Icon(Icons.remove, color: primary, size: 20),
+                                  ),
+                                ),
+                                Text(
+                                  '$quantity',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: darkBrown,
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () {
+                                    String tag = '';
+                                    if (widget.restaurant['tags'] != null &&
+                                        (widget.restaurant['tags'] as List).isNotEmpty) {
+                                      tag = (widget.restaurant['tags'] as List)[0];
+                                    } else {
+                                      tag = 'General';
+                                    }
+
+                                    CartService().addToCart(
+                                      restaurantName: widget.restaurant['title'],
+                                      restaurantImage: widget.restaurant['image'],
+                                      restaurantTag: tag,
+                                      itemName: item['name'],
+                                      itemImage: item['image'],
+                                      itemPrice: (item['price'] as num).toDouble(),
+                                    );
+                                  },
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(18),
+                                    bottomRight: Radius.circular(18),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Icon(Icons.add, color: primary, size: 20),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
                         }
 
-                        CartService().addToCart(
-                          restaurantName: widget.restaurant['title'],
-                          restaurantImage: widget.restaurant['image'],
-                          restaurantTag: tag,
-                          itemName: item['name'],
-                          itemImage: item['image'],
-                          itemPrice: item['price'].toDouble(),
+                        return InkWell(
+                          onTap: () {
+                            String tag = '';
+                            if (widget.restaurant['tags'] != null &&
+                                (widget.restaurant['tags'] as List).isNotEmpty) {
+                              tag = (widget.restaurant['tags'] as List)[0];
+                            } else {
+                              tag = 'General';
+                            }
+
+                            CartService().addToCart(
+                              restaurantName: widget.restaurant['title'],
+                              restaurantImage: widget.restaurant['image'],
+                              restaurantTag: tag,
+                              itemName: item['name'],
+                              itemImage: item['image'],
+                              itemPrice: (item['price'] as num).toDouble(),
+                            );
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add, color: Colors.white, size: 20),
+                          ),
                         );
-                        
-                        // Removed SnackBar notification as requested
                       },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          color: primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.add, color: Colors.white, size: 20),
-                      ),
                     ),
                   ],
                 ),
@@ -902,7 +1071,7 @@ class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     const primary = Color(0xFF8A0000);
-    
+
     return Container(
       color: const Color(0xFFF8F5F5),
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -948,7 +1117,6 @@ class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverCategoryDelegate oldDelegate) {
-    return selectedIndex != oldDelegate.selectedIndex || 
-           categories != oldDelegate.categories;
+    return selectedIndex != oldDelegate.selectedIndex || categories != oldDelegate.categories;
   }
 }

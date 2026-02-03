@@ -59,6 +59,30 @@ class CartService extends ChangeNotifier {
     return total;
   }
 
+  // Helper to get item quantity by name
+  int getItemQuantity(String restaurantName, String itemName) {
+    if (!_cartItems.containsKey(restaurantName)) return 0;
+    
+    try {
+      final item = _cartItems[restaurantName]!.firstWhere((item) => item.name == itemName);
+      return item.quantity;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // Helper to decrease quantity by name
+  void decrementItemQuantity(String restaurantName, String itemName) {
+    if (!_cartItems.containsKey(restaurantName)) return;
+
+    final list = _cartItems[restaurantName]!;
+    final index = list.indexWhere((item) => item.name == itemName);
+
+    if (index != -1) {
+      updateQuantity(restaurantName, index, -1);
+    }
+  }
+
   // Actions
   void addToCart({
     required String restaurantName,

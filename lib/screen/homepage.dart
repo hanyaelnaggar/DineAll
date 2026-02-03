@@ -3,6 +3,7 @@ import 'package:dineall/screen/food_screen.dart';
 import 'package:dineall/screen/cart_screen.dart';
 import 'package:dineall/screen/profile_screen.dart';
 import 'package:dineall/screen/chatbot_screen.dart';
+import 'package:dineall/screen/notification_screen.dart';
 import 'package:dineall/service/location_service.dart';
 
 class Homepage extends StatefulWidget {
@@ -237,10 +238,10 @@ class _HomepageState extends State<Homepage> {
                               children: [
                                 GestureDetector(
                                   onTap: () {
-                                     // Navigate to Cart or Notifications screen
+                                     // Navigate to Notifications screen
                                      Navigator.push(
                                        context,
-                                       MaterialPageRoute(builder: (context) => const CartScreen()),
+                                       MaterialPageRoute(builder: (context) => const NotificationScreen()),
                                      );
                                   },
                                   child: Container(
@@ -514,6 +515,21 @@ class _HomepageState extends State<Homepage> {
 
                   const SizedBox(height: 32), // mt-8
 
+                  // Promotions Title
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Special Offers',
+                      style: TextStyle(
+                        color: Color(0xFF3E2723),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // 3. Promotional Cards (Horizontal Scroll)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -616,27 +632,34 @@ class _HomepageState extends State<Homepage> {
                   ),
                   const SizedBox(height: 24), // mb-6
 
-                  // Cards List
-                  Padding(
+                  // Cards List (Horizontal Scroll)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
+                    child: Row(
                       children: [
-                        _buildTrendingCard(
-                          image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCFpVVFAaroSFRuTZPdgz1lPViSW5bl8HigqmTR4Cn8nw8iT9Sb7jKedUjINZDWjmWJWXcXiLPhdxv7v-h8XdNTIpHCBbr6zZgHkL7ku-OltAENSTAiwfUT7Ie1-a4xC-siR5kYFVP8bLFNt8zJUyTNJ8proFbkdddyGVIxfhqURDTd-OaWhP5VTxH1vuire_5-W3OYPrTvhmvMUImoC_imlSpsqfnrVLH-CdP3Q7SFC0SgBroQkfzszez1OHeSmpTo--SPT27uYX4',
-                          rating: '4.9',
-                          tag: 'Open Now',
-                          tagColor: accent,
-                          title: 'Flora & Fauna',
-                          subtitle: 'Artisanal Salads • 15-25 min',
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.85,
+                          child: _buildTrendingCard(
+                            image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCFpVVFAaroSFRuTZPdgz1lPViSW5bl8HigqmTR4Cn8nw8iT9Sb7jKedUjINZDWjmWJWXcXiLPhdxv7v-h8XdNTIpHCBbr6zZgHkL7ku-OltAENSTAiwfUT7Ie1-a4xC-siR5kYFVP8bLFNt8zJUyTNJ8proFbkdddyGVIxfhqURDTd-OaWhP5VTxH1vuire_5-W3OYPrTvhmvMUImoC_imlSpsqfnrVLH-CdP3Q7SFC0SgBroQkfzszez1OHeSmpTo--SPT27uYX4',
+                            rating: '4.9',
+                            tag: 'Open Now',
+                            tagColor: accent,
+                            title: 'Flora & Fauna',
+                            subtitle: 'Artisanal Salads • 15-25 min',
+                          ),
                         ),
-                        const SizedBox(height: 24), // space-y-6
-                        _buildTrendingCard(
-                          image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr38oLyEyzG5-zOkjhHcPoqqhahHDkrYIXGYXyNeTc4Y-JrbqA5JiIAQuSxTpejt-59IDEdv1k6hCkM49ftPivSYrc5pN59JJPVPKwGBLErK9r8Qzc6b7zlqsPGKSgaizk-uiXR_7OyIpLwtyffhuF0NLXVSezWwitD-NhoNbC7ImKyHG1ubl65I64L_iqKG_mZeWd6F96MhOHdoQ60sTGtY3Yl9zGeLqfEZzzvrV9GEKOiKq8PJukHZAuAS9M-TEeoLMne_EEv4E',
-                          rating: '4.7',
-                          tag: 'New Opening',
-                          tagColor: primary,
-                          title: 'The Daily Brew',
-                          subtitle: 'Espresso Bar • 10-15 min',
+                        const SizedBox(width: 16), // gap-4
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.85,
+                          child: _buildTrendingCard(
+                            image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr38oLyEyzG5-zOkjhHcPoqqhahHDkrYIXGYXyNeTc4Y-JrbqA5JiIAQuSxTpejt-59IDEdv1k6hCkM49ftPivSYrc5pN59JJPVPKwGBLErK9r8Qzc6b7zlqsPGKSgaizk-uiXR_7OyIpLwtyffhuF0NLXVSezWwitD-NhoNbC7ImKyHG1ubl65I64L_iqKG_mZeWd6F96MhOHdoQ60sTGtY3Yl9zGeLqfEZzzvrV9GEKOiKq8PJukHZAuAS9M-TEeoLMne_EEv4E',
+                            rating: '4.7',
+                            tag: 'New Opening',
+                            tagColor: primary,
+                            title: 'The Daily Brew',
+                            subtitle: 'Espresso Bar • 10-15 min',
+                          ),
                         ),
                       ],
                     ),

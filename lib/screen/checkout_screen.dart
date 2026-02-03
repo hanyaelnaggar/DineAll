@@ -1,7 +1,9 @@
 import 'package:dineall/screen/live_tracking_screen.dart';
+import 'package:dineall/screen/confirmed_order_screen.dart';
 import 'package:dineall/screen/chatbot_screen.dart';
 import 'package:dineall/service/cart_service.dart';
 import 'package:dineall/service/location_service.dart';
+import 'package:dineall/service/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_credit_card/flutter_credit_card.dart';
 import 'dart:ui' as ui;
@@ -337,13 +339,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               const SnackBar(content: Text('Processing Payment...')),
                             );
                             
+                            // Save card details if payment is via Credit Card
+                            if (_selectedPaymentMethod == 'Credit Card' && cardNumber.isNotEmpty) {
+                              PaymentService().addCard(cardNumber, expiryDate, 'Credit Card');
+                            }
+
                             // Simulate payment delay then navigate to tracking
                             Future.delayed(const Duration(seconds: 2), () {
                               CartService().clearAll(); // Clear cart after successful payment
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const LiveTrackingScreen()),
-                              );
+                              
+                              if (_selectedOrderType == 'Delivery') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const LiveTrackingScreen()),
+                                );
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const ConfirmedOrderScreen()),
+                                );
+                              }
                             });
                           },
                         ),

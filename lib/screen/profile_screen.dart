@@ -1,6 +1,9 @@
 import 'package:dineall/screen/cart_screen.dart';
+import 'package:dineall/screen/favorites_screen.dart';
 import 'package:dineall/screen/food_screen.dart';
 import 'package:dineall/screen/login_screen.dart';
+import 'package:dineall/screen/payment_methods_screen.dart';
+import 'package:dineall/screen/settings_screen.dart';
 import 'package:dineall/service/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -42,7 +45,12 @@ class ProfileScreen extends StatelessWidget {
             ),
             child: IconButton(
               icon: const Icon(Icons.settings, color: textDarkBrown, size: 20),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
+              },
             ),
           ),
         ],
@@ -64,44 +72,6 @@ class ProfileScreen extends StatelessWidget {
 
                     return Column(
                       children: [
-                        Center(
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 120,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 4),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                  image: DecorationImage(
-                                    image: NetworkImage(image),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: primary,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  child: const Icon(Icons.edit, color: Colors.white, size: 16),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                         const SizedBox(height: 16),
                         Text(
                           name,
@@ -140,6 +110,12 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Payment Methods',
                       primary: primary,
                       textDarkBrown: textDarkBrown,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PaymentMethodsScreen()),
+                        );
+                      },
                     ),
                     _buildProfileOption(
                       icon: Icons.location_on,
@@ -152,13 +128,12 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Favorites',
                       primary: primary,
                       textDarkBrown: textDarkBrown,
-                    ),
-                    _buildProfileOption(
-                      icon: Icons.military_tech,
-                      title: 'DineAll Rewards',
-                      primary: primary,
-                      textDarkBrown: textDarkBrown,
-                      subtitle: 'GOLD TIER',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const FavoritesScreen()),
+                        );
+                      },
                     ),
                     _buildProfileOption(
                       icon: Icons.support_agent,
@@ -296,6 +271,7 @@ class ProfileScreen extends StatelessWidget {
     required Color primary,
     required Color textDarkBrown,
     String? subtitle,
+    VoidCallback? onTap,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -314,7 +290,7 @@ class ProfileScreen extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () {},
+          onTap: onTap ?? () {},
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),

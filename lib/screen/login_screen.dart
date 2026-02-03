@@ -5,6 +5,10 @@ import 'package:dineall/screen/sign_up.dart';
 import 'package:dineall/service/user_service.dart';
 // import 'package:dineall/screen/reset_password.dart';
 
+import '../services/auth_api.dart';
+import '../services/token_store.dart';
+import '../services/token_manager.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,20 +17,114 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // ✅ Controllers
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+
+  // ✅ UI state (unchanged)
   bool _obscure = true;
   bool _rememberMe = false;
 
-  // Validation State
+  // ✅ Validation state (unchanged)
   String? _emailError;
   String? _passwordError;
 
-  // Colors from the HTML/Tailwind config
+  // ✅ Services (NEW - no UI change)
+  final AuthApi _authApi = AuthApi();
+  final TokenStore _tokenStore = TokenStore();
+  late TokenManager _tokenManager;
+
+  // Colors from the HTML/Tailwind config (unchanged)
   static const Color primary = Color(0xFF8A0000);
   static const Color backgroundLight = Color(0xFFF5F5F5);
   static const Color brandBrown = Color(0xFF3E2723);
   // static const Color brandRedLight = Color(0xFFE32929);
+
+  @override
+  void initState() {
+    super.initState();
+
+    // default: no credential persistence (more secure)
+    _tokenManager = TokenManager(
+      authApi: _authApi,
+      tokenStore: _tokenStore,
+      renewBefore: const Duration(minutes: 5),
+      persistCredentials: false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text.trim();
+
+    setState(() {
+      _emailError = email.isEmpty ? 'Email is required' : null;
+      _passwordError = password.isEmpty ? 'Password is required' : null;
+    });
+
+    if (_emailError != null || _passwordError != null) return;
+
+    try {
+      // ✅ لو Remember Me = true هنفعّل persistCredentials عشان الـ token يتجدد حتى بعد restart
+      _tokenManager = TokenManager(
+        authApi: _authApi,
+        tokenStore: _tokenStore,
+        renewBefore: const Duration(minutes: 5),
+        persistCredentials: _rememberMe,
+      );
+
+      // ✅ Auth API call (Hidden - no UI change)
+      const branchName = 'Act';
+      final token = await _authApi.authenticate(
+        userName: email, // API expects userName
+        password: password,
+        branchName: branchName,
+      );
+
+      // ✅ store credentials in session (and optionally secure storage if rememberMe=true)
+      await _tokenManager.setSessionCredentials(
+        userName: email,
+        password: password,
+        branchName: branchName,
+      );
+
+      // ✅ store token securely
+      await _tokenManager.saveInitialTokenFromLogin(token);
+
+      // ✅ debug prints (token + json) — مفيش UI تغيير
+      // ignore: avoid_print
+      print('✅ ACCESS TOKEN: ${token.accessToken}');
+      // ignore: avoid_print
+      print('✅ TOKEN TYPE: ${token.tokenType}');
+      // ignore: avoid_print
+      print('✅ EXPIRES AT: ${token.expiresAt.toIso8601String()}');
+      // ignore: avoid_print
+      print('✅ FULL JSON: ${token.rawJson}');
+
+      // ✅ keep your existing logic (unchanged)
+      UserService().login(email);
+
+      // ✅ navigation (same as you had)
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const Homepage(),
+        ),
+      );
+    } catch (e) {
+      // Hidden: console only (no UI changes)
+      // ignore: avoid_print
+      print('❌ LOGIN ERROR: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,28 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(
                           height: 52,
                           child: ElevatedButton(
-                            onPressed: () {
-                              final email = _emailCtrl.text.trim();
-                              final password = _passwordCtrl.text.trim();
-
-                              setState(() {
-                                _emailError = email.isEmpty ? 'Email is required' : null;
-                                _passwordError = password.isEmpty ? 'Password is required' : null;
-                              });
-
-                              if (_emailError != null || _passwordError != null) {
-                                return;
-                              }
-
-                              UserService().login(email);
-                              
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const Homepage(),
-                                ),
-                              );
-                            },
+                            onPressed: _handleLogin, // ✅ only changed logic
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primary,
                               foregroundColor: Colors.white,
@@ -395,7 +472,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Using a standard icon if Icons.apple is unavailable
                                     Icon(Icons.apple, color: brandBrown, size: 22),
                                     const SizedBox(width: 8),
                                     Text(
